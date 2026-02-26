@@ -2,7 +2,6 @@ import argparse, urllib.request
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
-import time
 import re
 import requests
 import os
@@ -44,7 +43,6 @@ def parser():
     return parser.parse_args()
 
 parsed_args = parser()
-print(parsed_args)
 
 imgs_downloaded = []
 
@@ -54,7 +52,6 @@ RECURSIVE_MODE = parsed_args.recursive_enable
 RECURSIVE_MAX_DEPTH = parsed_args.level
 
 MAX_WORKERS = 10
-MAX_RETRIES = 3
 allowed_img_types = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
@@ -165,8 +162,6 @@ def download_imgs(url, html, executor) -> None :
     imgs_new = find_img_tags(url, html)
     results = executor.map(download_img, imgs_new)
 
-    # console.print(Text(f"\n---- {url} ----", style="bold magenta", no_wrap=True))
-
     title_panel = Panel(
         Text(f"{url}", style="bold magenta", no_wrap=True),
         style="cyan",
@@ -174,7 +169,6 @@ def download_imgs(url, html, executor) -> None :
         expand=True
     )
 
-    # 2. Create the Table
     table = Table(expand=True, box=box.SQUARE)
     table.add_column("Status", width=10)
     table.add_column("Filename", ratio=1)
@@ -185,6 +179,14 @@ def download_imgs(url, html, executor) -> None :
         'Alert': "yellow",
         'Error': "red"
     }
+
+    if not imgs_new.__len__():
+        status_color = 'green'
+        table.add_row(
+            f"[{status_color}]{"Empty"}[/{status_color}]",
+            "-------------",
+            "There aren't images in this url"
+        )
 
     for item in results:
         status_color = colors[item["status"]]
