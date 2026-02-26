@@ -39,7 +39,7 @@ def identify_type(binary_file) -> str:
         if binary_file.startswith(signature):
             print("FILE: ", extension)
             return extension
-    return 'none'
+    return None
 
 
 def parse_jpg_JFIF_APP0():
