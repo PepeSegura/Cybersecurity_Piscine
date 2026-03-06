@@ -1,0 +1,17 @@
+FROM debian:bookworm
+
+RUN apt-get update && \
+    apt-get install -y python3 python3-venv iproute2 iputils-ping net-tools tcpdump
+
+WORKDIR /inquisitor
+
+COPY ../ ./
+
+RUN python3 -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip install --no-cache-dir -r ./requirements.txt
+
+
+ENTRYPOINT [ "sleep", "infinity" ]
