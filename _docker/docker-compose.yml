@@ -1,23 +1,23 @@
 services:
-  # source:
-  #   image: debian:bookworm
-  #   container_name: source
-  #   networks:
-  #     inquisitor:
-  #       ipv4_address: 1.1.1.10
-  #   cap_add:
-  #     - NET_ADMIN
-  #   command: /bin/bash -c "apt-get update && apt-get install -y iproute2 iputils-ping net-tools tcpdump && tail -f /dev/null"
+  source:
+    image: debian:bookworm
+    container_name: source
+    networks:
+      inquisitor:
+        ipv4_address: 1.1.1.10
+    cap_add:
+      - NET_ADMIN
+    command: /bin/bash -c "apt-get update && apt-get install -y iproute2 iputils-ping net-tools tcpdump && tail -f /dev/null"
 
-  # target:
-  #   image: debian:bookworm
-  #   container_name: target
-  #   networks:
-  #     inquisitor:
-  #         ipv4_address: 1.1.1.20
-  #   cap_add:
-  #     - NET_ADMIN
-  #   command: /bin/bash -c "apt-get update && apt-get install -y iproute2 iputils-ping net-tools tcpdump && tail -f /dev/null"
+  target:
+    image: debian:bookworm
+    container_name: target
+    networks:
+      inquisitor:
+          ipv4_address: 1.1.1.20
+    cap_add:
+      - NET_ADMIN
+    command: /bin/bash -c "apt-get update && apt-get install -y iproute2 iputils-ping net-tools tcpdump && tail -f /dev/null"
 
   attacker:
     build:

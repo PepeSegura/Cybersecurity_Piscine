@@ -1,7 +1,9 @@
 #! /usr/bin/python3
 
 import argparse
-import socket, threading
+import socket, struct
+
+ETH_TYPE = 0x0806
 
 def parser():
     parser = argparse.ArgumentParser(
@@ -31,41 +33,128 @@ def parser():
     return parser.parse_args()
 
 
-def handle_client(client_sock, client_address):
-    while True:
-        data = client_sock.recv(1024)
-        if not data:
-            print(f"Client desconected")
-            client_sock.close()
-            break
-        message = data.decode('utf-8').strip()
-        print(f"Readed: {message}")
-        client_sock.send(f"Echo: {message}\n".encode('utf-8'))
+def create_server_socket():
+    try:
+        server_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_TYPE))
+        # server_socket.settimeout(2)
+        return server_socket
+    except PermissionError:
+        print("Error: Network capabilities disabled")
+        print("Try: sudo setcap cap_net_raw+ep inquisitor.py or sudo python inquisitor.py")
+        exit(1)
+    except Exception as e:
+        print(f"Error creating socket: {e}")
+        exit(1)
 
+# Convert byte MAC to str format: ff:ff:ff:ff:ff:ff
+def format_mac(byte_mac):
+    return ':'.join(f'{b:02x}' for b in byte_mac)
+
+
+"""
+
+                               PKT
+|-------------------------------------------------------------------|
+| ethhdr | arphdr | sender_mac | sender_ip | target_mac | target_ip |
+|-------------------------------------------------------------------|
+               ETH_HDR
+|------------------------------------|
+| h_dest   - destination eth addr    |
+| h_source - source ether addr       |
+| h_proto  - packet type ID field    |
+|------------------------------------|
+                ARP_HDR
+|-------------------------------------|
+| ar_hrd - format of mac address      |
+| ar_pro - format of protocol address |
+| ar_hln - format of mac address      |
+| ar_pln - format of mac address      |
+| ar_op  - format of mac address      |
+|-------------------------------------|
+| ar_sha[6]  - sender hardware address|
+| ar_sip[4]  - sender IP address      |
+| ar_tha[6]  - target hardware address|
+| ar_tip[4]  - target IP address      |
+|-------------------------------------|
+
+
+"""
+
+
+def parse_eth_header(packet):
+    eth_hdr = packet[:14]
+    eth_fields = struct.unpack("!6s6sH", eth_hdr)
+    eth_dest = eth_fields[0]
+    eth_src = eth_fields[1]
+    eth_type = eth_fields[2]
+
+    print(f"eth_dest: ", format_mac(eth_dest))
+    print(f"eth_src:  ", format_mac(eth_src))
+    print(f"eth_type: ", "ETH_TYPE" if eth_type == ETH_TYPE else eth_type)
+    return eth_type
+
+
+"""
+    struct.unpack()
+
+    !    = Network format
+    H    = unsigned short
+    B    = unsigned char
+    [n]s = char[n]
+
+    https://docs.python.org/3/library/struct.html
+"""
+
+def parse_arp_packet(packet, addr):
+    arp_packet = packet[14:42]
+    arp_fields = struct.unpack('!HHBBH6s4s6s4s', arp_packet)
+
+    # arp_hdr
+    hw_type = arp_fields[0]
+    proto_type = arp_fields[1]
+    hw_size = arp_fields[2]
+    proto_size = arp_fields[3]
+    opcode = arp_fields[4]
+
+    # sender/target info
+    sender_mac = arp_fields[5]
+    sender_ip = arp_fields[6]
+    target_mac = arp_fields[7]
+    target_ip = arp_fields[8]
+
+    sender_mac_str = format_mac(sender_mac)
+    target_mac_str = format_mac(target_mac)
+    sender_ip_str = socket.inet_ntoa(sender_ip)
+    target_ip_str = socket.inet_ntoa(target_ip)
+
+    OPCODES = { 1: 'REQUEST', 2: 'REPLY' }
+    print(f"\nARP Packet received:")
+    print(f"  Operation: {OPCODES.get(opcode, 'UNKNOWN')}")
+    print(f"  Sender MAC: {sender_mac_str}")
+    print(f"  Sender IP: {sender_ip_str}")
+    print(f"  Target MAC: {target_mac_str}")
+    print(f"  Target IP: {target_ip_str}")
+    print(f"  Interface: {addr[0] if addr else 'unknown'}")
+
+
+def recv_packet(socket):
+    while True:
+        try:
+            packet, addr = socket.recvfrom(1024)
+            # print("PACKET: ", packet)
+            # print("ADR:    ", addr)
+
+            if (parse_eth_header(packet) != ETH_TYPE):
+                continue
+            parse_arp_packet(packet, addr)
+        except Exception as e:
+            print("Error: ", e)
 
 if __name__ == "__main__":
-    # parsed_args = parser()
-    # print(parsed_args)
-    hostname = socket.gethostname()
-    host = socket.gethostbyname(hostname)
-    port = 8080
-    print("hostname: ", hostname)
-    print("name: ", host)
-    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_sock.bind((host, port))
-    server_sock.listen(10)
-
     try:
-        while True:
-            client_sock, client_address = server_sock.accept()
-            print(f"sock {client_sock} addr {client_address}")
-            client_thread = threading.Thread(
-                target=handle_client,
-                args=(client_sock, client_address)
-            )
-            client_thread.daemon = True
-            client_thread.start()
+        server_socket = create_server_socket()
+        recv_packet(server_socket)
     except KeyboardInterrupt:
-        print("\nServer shutting down...")
+        print("keyboard interrupt")
     finally:
-        server_sock.close()
+        server_socket.close()
