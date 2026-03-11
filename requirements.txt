@@ -1,5 +1,6 @@
 build==1.4.0
 charset-normalizer==3.4.5
+getmac==0.9.5
 packaging==26.0
 pkg_about==2.2.0
 py-utlx==2.2.0
