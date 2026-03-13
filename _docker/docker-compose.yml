@@ -2,6 +2,7 @@ services:
   source:
     image: debian:bookworm
     container_name: source
+    hostname: source
     networks:
       inquisitor:
         ipv4_address: 1.1.1.10
@@ -17,6 +18,7 @@ services:
   target:
     image: debian:bookworm
     container_name: target
+    hostname: target
     networks:
       inquisitor:
           ipv4_address: 1.1.1.20
@@ -34,6 +36,7 @@ services:
       context: ../
       dockerfile: ./_docker/Dockerfile
     container_name: attacker
+    hostname: attacker
     networks:
       inquisitor:
           ipv4_address: 1.1.1.42

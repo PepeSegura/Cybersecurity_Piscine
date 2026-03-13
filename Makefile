@@ -21,14 +21,20 @@ start:
 stop:
 	$(COMPOSE) stop
 
-shell-source:
+src-ssh:
 	docker exec -it source /bin/bash
 
-shell-target:
+target-ssh:
 	docker exec -it target /bin/bash
 
-shell-attacker:
+attacker-ssh:
 	docker exec -it attacker /bin/bash
+
+src-info:
+	@docker inspect source -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.MacAddress}}{{end}}'
+
+target-info:
+	@docker inspect target -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.MacAddress}}{{end}}'
 
 restart:: stop
 restart:: start
