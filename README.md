@@ -6,13 +6,13 @@ This repository contains my solutions and documentation for the **Cybersecurity 
 
 | Project | Category | Key Concepts | Link |
 | :--- | :--- | :--- | :--- |
-| **Arachnida** | Web & Metadata | Web scraping, EXIF data, Python | [View Project](../../tree/arachnida) |
-| **ft_otp** | Auth / Crypto | TOTP (RFC 6238), HMAC, Key Security | [View Project](../../tree/ft_otp) |
-| **ft_onion** | Networking | Tor Network, Hidden Services, Docker | [View Project](../../tree/ft_onion) |
-| **Reverse me** | Reversing | Binary analysis, CTF challenges | [View Project](../../tree/reverse_me) |
-| **Stockholm** | Malware | Wannacry mechanics, Encryption | [View Project](../../tree/stockholm) |
-| **Inquisitor** | Networking | ARP Spoofing, Packet inspection | [View Project](../../tree/inquisitor) |
-| **Vaccine** | Web Security | SQL Injection, XSS, Automation | [View Project](../../tree/vaccine) |
+| **Arachnida** | Web & Metadata | Web scraping, EXIF data, Python | [View Project](../../tree/arachnida) | Done
+| **ft_otp** | Auth / Crypto | TOTP (RFC 6238), HMAC, Key Security | [View Project](../../tree/ft_otp) | WIP
+| **ft_onion** | Networking | Tor Network, Hidden Services, Docker | [View Project](../../tree/ft_onion) | Empty
+| **Reverse me** | Reversing | Binary analysis, CTF challenges | [View Project](../../tree/reverse_me) | Done
+| **Stockholm** | Malware | Wannacry mechanics, Encryption | [View Project](../../tree/stockholm) | Empty
+| **Inquisitor** | Networking | ARP Spoofing, Packet inspection | [View Project](../../tree/inquisitor) | Done
+| **Vaccine** | Web Security | SQL Injection, XSS, Automation | [View Project](../../tree/vaccine) | Empty
 
 ---
 
