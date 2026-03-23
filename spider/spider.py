@@ -1,4 +1,4 @@
-import argparse, urllib.request
+import argparse, urllib.request, random
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
@@ -53,16 +53,35 @@ RECURSIVE_MAX_DEPTH = parsed_args.level
 
 MAX_WORKERS = 10
 allowed_img_types = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-}
+
+downloaded_imgs_count = 0
+
+def get_random_header():
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:135.0) Gecko/20100101 Firefox/135.0",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/134.0.6998.95 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (iPad; CPU OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.108 Mobile Safari/537.36",
+        "Mozilla/5.0 (Android 14; Mobile; rv:135.0) Gecko/135.0 Firefox/135.0",
+        "Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.6261.121 Mobile Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 OPR/116.0.0.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0"
+    ]
+    return {"User-Agent": user_agents[random.randint(0, 14)] }
 
 console = Console()
 
 
 def get_html(url) -> str :
     try:
-        req = urllib.request.Request(url, headers=headers)
+        req = urllib.request.Request(url, headers=get_random_header())
         with urllib.request.urlopen(req) as response:
             return response.read().decode('utf-8', errors='replace')
     except Exception as e:
@@ -120,7 +139,8 @@ def find_a_tags(url_base, html, urls_visited) -> set :
 
 
 def download_img(url_img) -> dict :
-    def download_and_store(url, folder=DOWNLOAD_PATH) -> str:
+    def download_and_store(url, folder=DOWNLOAD_PATH):
+        global downloaded_imgs_count
         os.makedirs(folder, exist_ok=True)
         filename = os.path.join(folder, url.split("/")[-1])
         if os.path.exists(filename):
@@ -130,11 +150,12 @@ def download_img(url_img) -> dict :
                 'msg': "Was already downloaded"
             }
         try:
-            with requests.get(url, headers=headers, stream=True) as r:
+            with requests.get(url, headers=get_random_header(), stream=True) as r:
                 r.raise_for_status()
                 with open(filename, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
+                downloaded_imgs_count += 1
                 return {
                     'status': "Okey",
                     'filename': filename,
@@ -229,6 +250,8 @@ if __name__ == '__main__':
                 current_level_urls = next_level_urls
                 if not current_level_urls:
                     break
+        print(f"[+] Total URLs visited: {len(urls_visited)}")
+        print(f"[+] Unique files correctly downloaded: {downloaded_imgs_count}")
 
     except KeyboardInterrupt:
         print("\n[!] Interrupt detected! Shutting down safely...")
@@ -239,3 +262,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"\n[!] An unexpected error occurred: {e}")
 
+
+"""
+    Url for testing: https://books.toscrape.com/
+"""

@@ -1,4 +1,4 @@
-import argparse, sys, struct
+import argparse, sys, struct, os, time
 
 
 def parser():
@@ -33,10 +33,6 @@ def identify_type(binary_file:memoryview) -> str:
         if bytes(binary_file).startswith(signature):
             return extension
     return None
-
-
-def parse_jpg_JFIF_APP0(binary_file:memoryview):
-    print("Parsing jpg/JFIF(APP0)")
 
 
 def return_hex(BYTES:memoryview):
@@ -365,7 +361,7 @@ def APP1_DATA(DATA:memoryview):
     )
 
 
-def parse_jpg_Exif_APP1(binary_file:memoryview):
+def parse_jpg_Exif_APP1(binary_file:memoryview, filename):
     print("Parsing jpg/Exif(APP1)")
     soi = bytes(binary_file[:2])                            # 0xFFD8
     marker = bytes(binary_file[2:4])                        # 0xFFD1
@@ -377,56 +373,72 @@ def parse_jpg_Exif_APP1(binary_file:memoryview):
     APP1_DATA(app1_segment)
 
 
-def parse_jpg_Canon_ICC_APP2(binary_file:memoryview):
-    print("Parsing jpg/Canon/ICC(APP2)")
+def print_basic_info(filename):
+    stats = os.stat(filename)
+    print(f"Size: {stats.st_size} bytes, Modified: {time.ctime(stats.st_mtime)}")
 
 
-def parse_jpg_DQT(binary_file:memoryview):
-    print("Parsing jpg/DQT")
+def parse_jpg_JFIF_APP0(binary_file:memoryview, filename):
+    print("Parsing jpg/JFIF(APP0)")
+    print_basic_info(filename)
 
 
-def parse_png(binary_file:memoryview):
-    print("Parsing png")
+def parse_jpg_Canon_ICC_APP2(binary_file:memoryview, filename):
+    print("jpg/Canon/ICC(APP2) file detected, printing basic metadata")
+    print_basic_info(filename)
 
 
-def parse_gif1(binary_file:memoryview):
-    print("Parsing gif1")
+def parse_jpg_DQT(binary_file:memoryview, filename):
+    print("jpg/DQT file detected file detected, printing basic metadata")
+    print_basic_info(filename)
 
 
-def parse_gif2(binary_file:memoryview):
-    print("Parsing gif2")
+def parse_png(binary_file:memoryview, filename):
+    print("png file detected file detected, printing basic metadata")
+    print_basic_info(filename)
 
 
-def parse_bmp(binary_file:memoryview):
-    print("Parsing bmp")
+def parse_gif1(binary_file:memoryview, filename):
+    print("gif file detected file detected, printing basic metadata")
+    print_basic_info(filename)
 
-def parse_error(binary_file:memoryview):
+
+def parse_gif2(binary_file:memoryview, filename):
+    print("gif file detected file detected, printing basic metadata")
+    print_basic_info(filename)
+
+
+def parse_bmp(binary_file:memoryview, filename):
+    print("bmp file detected file detected, printing basic metadata")
+    print_basic_info(filename)
+
+def parse_error(binary_file:memoryview, filename):
     print("File format not supported")
     sys.exit(1)
 
 
-def choose_file_parser(extension:str, binary_file:memoryview) -> None:
+def choose_file_parser(extension:str, binary_file:memoryview, filename) -> None:
     functions = {
-        # '.jpg/JFIF(APP0)': parse_jpg_JFIF_APP0,
+        '.jpg/JFIF(APP0)': parse_jpg_JFIF_APP0,
         '.jpg/Exif(APP1)': parse_jpg_Exif_APP1,
-        # '.jpg/Canon/ICC(APP2)': parse_jpg_Canon_ICC_APP2,
-        # '.jpg/DQT': parse_jpg_DQT,
-        # '.png':  parse_png,
-        # '.gif1': parse_gif1,
-        # '.gif2': parse_gif2,
-        # '.bmp':  parse_bmp,
+        '.jpg/Canon/ICC(APP2)': parse_jpg_Canon_ICC_APP2,
+        '.jpg/DQT': parse_jpg_DQT,
+        '.png':  parse_png,
+        '.gif1': parse_gif1,
+        '.gif2': parse_gif2,
+        '.bmp':  parse_bmp,
         None:  parse_error
     }
     if extension not in functions:
         print(f"File extension ({extension}) is not supported")
         return
-    functions[extension](binary_file)
+    functions[extension](binary_file, filename)
 
 
 def get_metadata(filename):
     with open(filename, 'rb') as file:
         binary_file = memoryview(file.read()).cast('B')
-        choose_file_parser(identify_type(binary_file), binary_file)
+        choose_file_parser(identify_type(binary_file), binary_file, filename)
 
 
 if __name__ == '__main__':
