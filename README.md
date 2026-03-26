@@ -7,8 +7,8 @@ This repository contains my solutions and documentation for the **Cybersecurity 
 | Project | Category | Key Concepts | Link | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **Arachnida** | Web & Metadata | Web scraping, EXIF data, Python | [View Project](../../tree/arachnida) | Done |
-| **ft_otp** | Auth / Crypto | TOTP (RFC 6238), HMAC, Key Security | [View Project](../../tree/ft_otp) | WIP |
-| **ft_onion** | Networking | Tor Network, Hidden Services, Docker | [View Project](../../tree/ft_onion) | Empty |
+| **ft_otp** | Auth / Crypto | TOTP (RFC 6238), HMAC, Key Security | [View Project](../../tree/ft_otp) | Done |
+| **ft_onion** | Networking | Tor Network, Hidden Services, Docker | [View Project](../../tree/ft_onion) | Done |
 | **Reverse me** | Reversing | Binary analysis, CTF challenges | [View Project](../../tree/reverse_me) | Done |
 | **Stockholm** | Malware | Wannacry mechanics, Encryption | [View Project](../../tree/stockholm) | Done |
 | **Inquisitor** | Networking | ARP Spoofing, Packet inspection | [View Project](../../tree/inquisitor) | Done |
