@@ -1,0 +1,7 @@
+services:
+  ft_onion:
+    init: true
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ft_onion

@@ -1,0 +1,27 @@
+# this file must be in /etc/ssh/sshd_config
+
+Include /etc/ssh/sshd_config.d/*.conf
+
+AllowUsers ft_onion
+
+ListenAddress 0.0.0.0
+Port 4242
+
+LoginGraceTime 2m
+PermitRootLogin no
+MaxAuthTries 2
+MaxSessions 2
+
+PasswordAuthentication yes
+PermitEmptyPasswords no
+
+KbdInteractiveAuthentication no
+
+UsePAM yes
+
+X11Forwarding yes
+PrintMotd no
+
+AcceptEnv LANG LC_* COLORTERM NO_COLOR
+
+Subsystem	sftp	/usr/lib/openssh/sftp-server
