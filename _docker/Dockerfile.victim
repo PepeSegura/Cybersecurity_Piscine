@@ -1,0 +1,10 @@
+FROM debian:bookworm
+
+RUN apt-get update && \
+    apt-get install -y iproute2 iputils-ping net-tools tcpdump vsftpd ftp
+
+RUN mkdir -p /var/run/vsftpd/empty
+
+COPY vsftpd.conf /etc/vsftpd.conf
+
+ENTRYPOINT service vsftpd start && tail -f /dev/null

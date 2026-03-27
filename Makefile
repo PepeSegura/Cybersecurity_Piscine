@@ -21,19 +21,19 @@ start:
 stop:
 	$(COMPOSE) stop
 
-src-ssh:
-	docker exec -it source /bin/bash
+ssh-src:
+	$(COMPOSE) exec -it source /bin/bash
 
-target-ssh:
-	docker exec -it target /bin/bash
+ssh-target:
+	$(COMPOSE) exec -it target /bin/bash
 
-attacker-ssh:
-	docker exec -it attacker /bin/bash
+ssh-attacker:
+	$(COMPOSE) exec -it attacker /bin/bash
 
-src-info:
+info-src:
 	@docker inspect source -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.MacAddress}}{{end}}'
 
-target-info:
+info-target:
 	@docker inspect target -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.MacAddress}}{{end}}'
 
 restart:: stop
@@ -46,8 +46,9 @@ ps:
 	$(COMPOSE) -p $(PROJECT_NAME) ps
 
 prune:
-	docker system prune -af
-	docker volume prune -af
+	- docker image prune -a -f
+	- docker system prune -f
+	- docker volume prune -a -f
 
 clean:
 	$(COMPOSE) down --rmi all --volumes --remove-orphans
