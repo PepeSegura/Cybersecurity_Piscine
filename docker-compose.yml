@@ -1,0 +1,7 @@
+services:
+  sand-box:
+    init: true
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sand-box
