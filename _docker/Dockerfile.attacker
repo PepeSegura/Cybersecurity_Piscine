@@ -13,5 +13,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 RUN pip install --no-cache-dir -r ./requirements.txt
 
+RUN echo "source /opt/venv/bin/activate" >> /root/.bashrc
 
 ENTRYPOINT [ "sleep", "infinity" ]

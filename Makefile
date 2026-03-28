@@ -4,46 +4,52 @@ PROJECT_NAME := inquisitor
 
 COMPOSE := docker-compose -f $(COMPOSE_FILE) -p $(PROJECT_NAME)
 
-.PHONY: up down build start stop restart logs ps prune shell-source shell-target shell-attacker
-
 up:
-	$(COMPOSE) up -d
+	- $(COMPOSE) up --build -d
 
 down:
-	$(COMPOSE) down
+	- $(COMPOSE) down
 
 build:
-	$(COMPOSE) build
+	- $(COMPOSE) build
 
 start:
-	$(COMPOSE) start
+	- $(COMPOSE) start
 
 stop:
-	$(COMPOSE) stop
+	- $(COMPOSE) stop
+
+restart: stop start
+
 
 ssh-src:
-	$(COMPOSE) exec -it source /bin/bash
+	- $(COMPOSE) exec -it source /bin/bash
 
 ssh-target:
-	$(COMPOSE) exec -it target /bin/bash
+	- $(COMPOSE) exec -it target /bin/bash
 
 ssh-attacker:
-	$(COMPOSE) exec -it attacker /bin/bash
+	- $(COMPOSE) exec -it attacker /bin/bash
+
+
+INFO_SRC = $(COMPOSE) -p $(PROJECT_NAME) ps -q source | xargs docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.MacAddress}}{{end}}'
+INFO_TARGET = $(COMPOSE) -p $(PROJECT_NAME) ps -q target | xargs docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.MacAddress}}{{end}}'
 
 info-src:
-	@docker inspect source -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.MacAddress}}{{end}}'
-
+	@echo "$$( $(INFO_SRC) )"
+	
 info-target:
-	@docker inspect target -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.MacAddress}}{{end}}'
+	@echo " $$( $(INFO_TARGET) )"
 
-restart:: stop
-restart:: start
+info:
+	@echo "python3 inquisitor.py $$( $(INFO_SRC) ) $$( $(INFO_TARGET) )"
+
 
 logs:
-	$(COMPOSE) -p $(PROJECT_NAME) logs -f
+	- $(COMPOSE) -p $(PROJECT_NAME) logs -f
 
 ps:
-	$(COMPOSE) -p $(PROJECT_NAME) ps
+	- $(COMPOSE) -p $(PROJECT_NAME) ps
 
 prune:
 	- docker image prune -a -f
@@ -51,4 +57,10 @@ prune:
 	- docker volume prune -a -f
 
 clean:
-	$(COMPOSE) down --rmi all --volumes --remove-orphans
+	- $(COMPOSE) down --rmi all --volumes --remove-orphans
+
+clean-all: stop clean prune
+
+.PHONY: up down build start stop restart
+.PHONY: ssh-src ssh-target ssh-attacker info-src info-target info
+.PHONY: logs ps prune clean clean-all

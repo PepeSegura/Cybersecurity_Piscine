@@ -3,8 +3,13 @@ FROM debian:bookworm
 RUN apt-get update && \
     apt-get install -y iproute2 iputils-ping net-tools tcpdump vsftpd ftp
 
-RUN mkdir -p /var/run/vsftpd/empty
+RUN mkdir -p /var/run/vsftpd/empty && \
+    mkdir -p /srv/ftp/upload && \
+    chown ftp:ftp /srv/ftp/upload && \
+    sed -i 's/root//g' /etc/ftpusers
 
-COPY vsftpd.conf /etc/vsftpd.conf
+COPY _docker/vsftpd.conf /etc/vsftpd.conf
+
+RUN echo "root:root" | chpasswd
 
 ENTRYPOINT service vsftpd start && tail -f /dev/null
